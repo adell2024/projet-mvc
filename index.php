@@ -1,46 +1,43 @@
 <?php
 
-// On définit la racine du projet
-define('ROOT', str_replace('index.php', '', $_SERVER['SCRIPT_FILENAME']));
+// Définition de la racine du projet
+define('ROOT', rtrim(str_replace('index.php', '', $_SERVER['SCRIPT_FILENAME']), '/') . DIRECTORY_SEPARATOR);
 
 // Inclusion de la logique centrale
-require_once(ROOT . 'app/Core.php');
+require_once(ROOT . 'app' . DIRECTORY_SEPARATOR . 'Core.php');
 
 // Récupération des paramètres dans l'URL
-$params = isset($_GET['p']) ? explode('/', $_GET['p']) : [];
+$params = isset($_GET['p']) ? explode('/', trim($_GET['p'], '/')) : [];
 
+// Vérification de la présence du contrôleur
+$controllerName = !empty($params[0]) ? ucfirst($params[0]) . 'Controller' : 'MainController';
+$controllerFile = ROOT . 'controllers' . DIRECTORY_SEPARATOR . $controllerName . '.php';
+$action = $params[1] ?? 'index';
 
-// Si la première partie du paramètre est non vide
-if (!empty($params[0])) {
-    $controller = ucfirst($params[0]) . 'Controller';  // Nom du contrôleur
-    $action = isset($params[1]) ? $params[1] : 'index';  // Action par défaut (index)
-    
-    
-    // Inclusion du contrôleur
-    if (file_exists(ROOT . 'controllers/' . $controller . '.php')) {
-        require_once(ROOT . 'controllers/' . $controller . '.php');
-        $controllerInstance = new $controller();
-        
-        // Vérification que l'action existe
-        if (method_exists($controllerInstance, $action)) {
-            unset($params[0], $params[1]);
+// Chargement du contrôleur si disponible
+if (file_exists($controllerFile)) {
+    require_once $controllerFile;
 
-            call_user_func_array([$controllerInstance, $action], $params);  // Appel de l'action
+    // Vérification que la classe du contrôleur existe
+    if (class_exists($controllerName)) {
+        $controllerInstance = new $controllerName();
 
-
+        // Vérification que la méthode existe et est accessible
+        if (method_exists($controllerInstance, $action) && is_callable([$controllerInstance, $action])) {
+            $arguments = array_slice($params, 2); // Récupération des arguments après le contrôleur et l'action
+            call_user_func_array([$controllerInstance, $action], $arguments);
         } else {
-            // Action inexistante
-            header('HTTP/1.0 404 Not Found');
-            echo 'La méthode ' . $action . ' n\'existe pas.';
+            // Méthode non trouvée
+            http_response_code(404);
+            echo "Erreur 404 : L'action <strong>{$action}</strong> est introuvable.";
         }
     } else {
-        // Contrôleur inexistant
-        header('HTTP/1.0 404 Not Found');
-        echo 'Le contrôleur ' . $controller . ' n\'existe pas.';
+        // Classe du contrôleur inexistante
+        http_response_code(500);
+        echo "Erreur 500 : La classe <strong>{$controllerName}</strong> n'existe pas.";
     }
 } else {
-    // Si aucun paramètre n'est fourni, on charge la page d'accueil
-    require_once(ROOT . 'controllers/MainController.php');
-    $controllerInstance = new MainController();
-    $controllerInstance->index();
+    // Fichier du contrôleur inexistant
+    http_response_code(404);
+    echo "Erreur 404 : Le contrôleur <strong>{$controllerName}</strong> est introuvable.";
 }
