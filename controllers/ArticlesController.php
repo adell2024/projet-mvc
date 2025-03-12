@@ -6,6 +6,12 @@ class ArticlesController extends Controller
     public function index()
     {
         $this->loadModel('Article');
+
+        if (!isset($this->Article)) {
+            $this->notFound("Le modèle Article est introuvable.");
+            return;
+        }
+
         $articles = $this->Article->getAll();
         $this->render('index', compact('articles'));
     }
@@ -14,12 +20,26 @@ class ArticlesController extends Controller
     public function read($slug)
     {
         $this->loadModel('Article');
+
+        if (!isset($this->Article)) {
+            $this->notFound("Le modèle Article est introuvable.");
+            return;
+        }
+
         $article = $this->Article->findBySlug($slug);
+
         if ($article) {
             $this->render('read', compact('article'));
         } else {
-            header('HTTP/1.0 404 Not Found');
-            echo 'L\'article n\'existe pas.';
+            $this->notFound("L'article demandé n'existe pas.");
         }
     }
+
+    // Gestion des erreurs 404
+    private function notFound($message = "Page introuvable.")
+    {
+        http_response_code(404);
+        $this->render('error404', ['message' => $message]);
+    }
 }
+
